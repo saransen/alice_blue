@@ -95,37 +95,37 @@ class AliceBlue:
     """ AliceBlue Class for all operations related to AliceBlue Server"""
 
     # URLs
-    host = "https://a3.aliceblueonline.com/rest/AliceBlueAPIService"
-    __urls = {  "webLogin"              :   f"{host}/customer/webLogin",
-                "twoFA"                 :   f"{host}/sso/validAnswer",
-                "sessionID"             :   f"{host}/sso/getUserDetails",
-                "getEncKey"             :   f"{host}/customer/getEncryptionKey",
-                "authorizeVendor"       :   f"{host}/sso/authorizeVendor",
-                "apiGetEncKey"          :   f"{host}/api/customer/getAPIEncpkey",
-                "profile"               :   f"{host}/api/customer/accountDetails",
-                "placeOrder"            :   f"{host}/api/placeOrder/executePlaceOrder",
-                "logout"                :   f"{host}/api/customer/logout",
-                "logoutFromAllDevices"  :   f"{host}/api/customer/logOutFromAllDevice",
-                "fetchMWList"           :   f"{host}/api/marketWatch/fetchMWList",
-                "fetchMWScrips"         :   f"{host}/api/marketWatch/fetchMWScrips",
-                "addScripToMW"          :   f"{host}/api/marketWatch/addScripToMW",
-                "deleteMWScrip"         :   f"{host}/api/marketWatch/deleteMWScrip",
-                "scripDetails"          :   f"{host}/api/ScripDetails/getScripQuoteDetails",
-                "positions"             :   f"{host}/api/positionAndHoldings/positionBook",
-                "holdings"              :   f"{host}/api/positionAndHoldings/holdings",
-                "sqrOfPosition"         :   f"{host}/api/positionAndHoldings/sqrOofPosition",
-                "fetchOrder"            :   f"{host}/api/placeOrder/fetchOrderBook",
-                "fetchTrade"            :   f"{host}/api/placeOrder/fetchTradeBook",
-                "exitBracketOrder"      :   f"{host}/api/placeOrder/exitBracketOrder",
-                "modifyOrder"           :   f"{host}/api/placeOrder/modifyOrder",
-                "cancelOrder"           :   f"{host}/api/placeOrder/cancelOrder",
-                "orderHistory"          :   f"{host}/api/placeOrder/orderHistory",
-                "getRmsLimits"          :   f"{host}/api/limits/getRmsLimits",
-                "createWsSession"       :   f"{host}/api/ws/createSocketSess",
-                "history"               :   f"{host}/api/chart/history",
-                "master_contract"       :   "https://v2api.aliceblueonline.com/restpy/contract_master?exch={exchange}",
-                "ws"                    :   "wss://ws2.aliceblueonline.com/NorenWS/"
-            }
+    host = "https://ant.aliceblueonline.com/rest/AliceBlueAPIService/api"
+    __urls = {"webLogin": f"{host}/customer/webLogin",
+              "twoFA": f"{host}/sso/validAnswer",
+              "sessionID": f"{host}/customer/getUserSID",
+              "getEncKey": f"{host}/customer/getEncryptionKey",
+              "authorizeVendor": f"{host}/sso/authorizeVendor",
+              "apiGetEncKey": f"{host}/customer/getAPIEncpkey",
+              "profile": f"{host}/customer/accountDetails",
+              "placeOrder": f"{host}/placeOrder/executePlaceOrder",
+              "logout": f"{host}/customer/logout",
+              "logoutFromAllDevices": f"{host}/customer/logOutFromAllDevice",
+              "fetchMWList": f"{host}/marketWatch/fetchMWList",
+              "fetchMWScrips": f"{host}/marketWatch/fetchMWScrips",
+              "addScripToMW": f"{host}/marketWatch/addScripToMW",
+              "deleteMWScrip": f"{host}/marketWatch/deleteMWScrip",
+              "scripDetails": f"{host}/ScripDetails/getScripQuoteDetails",
+              "positions": f"{host}/positionAndHoldings/positionBook",
+              "holdings": f"{host}/positionAndHoldings/holdings",
+              "sqrOfPosition": f"{host}/positionAndHoldings/sqrOofPosition",
+              "fetchOrder": f"{host}/placeOrder/fetchOrderBook",
+              "fetchTrade": f"{host}/placeOrder/fetchTradeBook",
+              "exitBracketOrder": f"{host}/placeOrder/exitBracketOrder",
+              "modifyOrder": f"{host}/placeOrder/modifyOrder",
+              "cancelOrder": f"{host}/placeOrder/cancelOrder",
+              "orderHistory": f"{host}/placeOrder/orderHistory",
+              "getRmsLimits": f"{host}/limits/getRmsLimits",
+              "createWsSession": f"{host}/ws/createSocketSess",
+              "history": f"{host}/chart/history",
+              "master_contract": "https://v2api.aliceblueonline.com/restpy/contract_master?exch={exchange}",
+              "ws": "wss://ws2.aliceblueonline.com/NorenWS/"
+              }
 
     def __init__(self, username, session_id, master_contracts_to_download = None):
         """ Create Alice Blue object, get enabled exchanges and products for user """
@@ -165,7 +165,7 @@ class AliceBlue:
         self.ws_thread = None
 
     @staticmethod
-    def login_and_get_sessionID(username, password, twoFA, app_id, api_secret):
+    def login_and_get_sessionID(username, password, twoFA, app_id, api_secret, api_key):
         """ Login and get Session ID """
         header = {"Content-Type" : "application/json"}
         try:
@@ -191,53 +191,21 @@ class AliceBlue:
                 fo.write(json.dumps(d))
         except Exception as e:
             logging.warn(f"Getting session_id from temp file ended in exception {e}")
-        # Get Encryption Key
-        data = {"userId" : username}
-        r = requests.post(AliceBlue.__urls['getEncKey'], headers=header, json=data)
-        logging.info(f"Get Encryption Key response {r.text}")
-        encKey = r.json()["encKey"]
-
-        # Web Login
-        checksum = CryptoJsAES.encrypt(password.encode(), encKey.encode())
-        checksum = checksum.decode("utf-8")
-        data = {"userId" : username,
-                "userData" : checksum}
-        r = requests.post(AliceBlue.__urls["webLogin"], json=data)
-        logging.info(f"Web Login response {r.text}")
-
-        # Web Login 2FA
-        data = {"answer1" : twoFA,
-                "sCount" : "1",
-                "sIndex" : "1",
-                "userId" : username,
-                "vendor" : app_id}
-        r = requests.post(AliceBlue.__urls["twoFA"], json=data)
-        logging.info(f"Web Login 2FA response {r.text}")
-        isAuthorized = r.json()['isAuthorized']
-        authCode = parse_qs(urlparse(r.json()["redirectUrl"]).query)['authCode'][0]
-        logging.info(f"isAuthorized {isAuthorized}")
-        logging.info(f"authCode {authCode}")
-
+        
         # Get API Encryption Key
         data = {"userId" : username}
         r = requests.post(AliceBlue.__urls["apiGetEncKey"], headers=header, data=json.dumps(data))
         logging.info(f"Get API Encryption Key response {r.text}")
+        encKey = r.json()["encKey"]
 
         # Get User Details/Session ID
-        checksum = hashlib.sha256(f"{username}{authCode}{api_secret}".encode()).hexdigest()
-        data = {"checkSum" : checksum}
+        checksum = hashlib.sha256(f"{username}{api_key}{encKey}".encode()).hexdigest()
+        data = {"userId" : username, "userData": checksum}
         r = requests.post(AliceBlue.__urls["sessionID"], headers=header, data=json.dumps(data))
         logging.info(f"Session ID response {r.text}")
-        session_id = r.json()['userSession']
+        session_id = r.json()['sessionID']
         logging.info(f"Session ID is {session_id}")
-
-        # Authorize vendor app
-        if(isAuthorized == False):
-            data = {"userId" : username,
-                    "vendor" : app_id}
-            print("Authorizing vendor app")
-            r = requests.post(AliceBlue.__urls["authorizeVendor"], headers=header, data=json.dumps(data))
-
+        
         # Write session_id in temp file for next time usage
         with open(tmp_file, 'w') as fo:
             d = {"session_id" : session_id}
